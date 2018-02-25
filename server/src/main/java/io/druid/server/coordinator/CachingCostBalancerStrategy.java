@@ -61,11 +61,7 @@ public class CachingCostBalancerStrategy extends CostBalancerStrategy
     // add segments that will be loaded to the cost
     cost += costCacheForLoadingSegments(server).computeCost(serverName, proposalSegment);
 
-    if (server.getAvailableSize() <= 0) {
-      return Double.POSITIVE_INFINITY;
-    }
-
-    return cost * (server.getMaxSize() / server.getAvailableSize());
+    return cost;
   }
 
   private ClusterCostCache costCacheForLoadingSegments(ServerHolder server)

@@ -21,7 +21,7 @@ package io.druid.segment.serde;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.druid.segment.IndexIO;
+import io.druid.segment.FloatColumnSerializer;
 import io.druid.segment.column.ColumnBuilder;
 import io.druid.segment.column.ColumnConfig;
 import io.druid.segment.column.ValueType;
@@ -65,7 +65,7 @@ public class FloatGenericColumnPartSerde implements ColumnPartSerde
   public static class SerializerBuilder
   {
     private ByteOrder byteOrder = null;
-    private Serializer delegate = null;
+    private FloatColumnSerializer delegate = null;
 
     public SerializerBuilder withByteOrder(final ByteOrder byteOrder)
     {
@@ -73,7 +73,7 @@ public class FloatGenericColumnPartSerde implements ColumnPartSerde
       return this;
     }
 
-    public SerializerBuilder withDelegate(final Serializer delegate)
+    public SerializerBuilder withDelegate(final FloatColumnSerializer delegate)
     {
       this.delegate = delegate;
       return this;
@@ -105,11 +105,7 @@ public class FloatGenericColumnPartSerde implements ColumnPartSerde
         );
         builder.setType(ValueType.FLOAT)
                .setHasMultipleValues(false)
-               .setGenericColumn(new FloatGenericColumnSupplier(
-                   column,
-                   IndexIO.LEGACY_FACTORY.getBitmapFactory()
-                                         .makeEmptyImmutableBitmap()
-               ));
+               .setGenericColumn(new FloatGenericColumnSupplier(column));
       }
     };
   }

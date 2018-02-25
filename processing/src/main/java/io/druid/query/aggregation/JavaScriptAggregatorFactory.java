@@ -27,6 +27,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.common.primitives.Doubles;
 import io.druid.java.util.common.StringUtils;
 import io.druid.js.JavaScriptConfig;
 import io.druid.segment.BaseObjectColumnValueSelector;
@@ -262,7 +263,7 @@ public class JavaScriptAggregatorFactory extends AggregatorFactory
   @Override
   public int getMaxIntermediateSize()
   {
-    return Double.BYTES;
+    return Doubles.BYTES;
   }
 
   @Override

@@ -28,7 +28,6 @@ import io.druid.segment.column.DictionaryEncodedColumn;
 import io.druid.segment.data.Indexed;
 import io.druid.segment.data.IndexedInts;
 
-import javax.annotation.Nullable;
 import java.io.Closeable;
 import java.lang.reflect.Array;
 import java.util.Arrays;
@@ -78,20 +77,6 @@ public class StringDimensionHandler implements DimensionHandler<Integer, int[], 
     return retVal;
   }
 
-  private boolean isNullRow(@Nullable int[] row, Indexed<String> encodings)
-  {
-    if (row == null) {
-      return true;
-    }
-    for (int value : row) {
-      if (encodings.get(value) != null) {
-        // Non-Null value
-        return false;
-      }
-    }
-    return true;
-  }
-
   @Override
   public void validateSortedEncodedKeyComponents(
       int[] lhs,
@@ -101,7 +86,7 @@ public class StringDimensionHandler implements DimensionHandler<Integer, int[], 
   ) throws SegmentValidationException
   {
     if (lhs == null || rhs == null) {
-      if (!isNullRow(lhs, lhsEncodings) || !isNullRow(rhs, rhsEncodings)) {
+      if (lhs != null || rhs != null) {
         throw new SegmentValidationException(
             "Expected nulls, found %s and %s",
             Arrays.toString(lhs),

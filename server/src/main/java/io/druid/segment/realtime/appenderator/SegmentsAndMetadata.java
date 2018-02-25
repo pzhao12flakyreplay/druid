@@ -22,7 +22,6 @@ package io.druid.segment.realtime.appenderator;
 import com.google.common.collect.ImmutableList;
 import io.druid.timeline.DataSegment;
 
-import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 
@@ -35,14 +34,13 @@ public class SegmentsAndMetadata
 
   public SegmentsAndMetadata(
       List<DataSegment> segments,
-      @Nullable Object commitMetadata
+      Object commitMetadata
   )
   {
     this.segments = ImmutableList.copyOf(segments);
     this.commitMetadata = commitMetadata;
   }
 
-  @Nullable
   public Object getCommitMetadata()
   {
     return commitMetadata;

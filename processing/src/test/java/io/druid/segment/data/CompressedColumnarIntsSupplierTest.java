@@ -19,6 +19,7 @@
 
 package io.druid.segment.data;
 
+import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 import io.druid.java.util.common.StringUtils;
 import io.druid.java.util.common.guava.CloseQuietly;
@@ -144,7 +145,7 @@ public class CompressedColumnarIntsSupplierTest extends CompressionStrategyTest
   @Test
   public void testLargeChunks() throws Exception
   {
-    final int maxChunkSize = CompressedPools.BUFFER_SIZE / Long.BYTES;
+    final int maxChunkSize = CompressedPools.BUFFER_SIZE / Longs.BYTES;
 
     setupLargeChunks(maxChunkSize, 10 * maxChunkSize);
     Assert.assertEquals(10, supplier.getBaseIntBuffers().size());
@@ -162,7 +163,7 @@ public class CompressedColumnarIntsSupplierTest extends CompressionStrategyTest
   @Test(expected = IllegalArgumentException.class)
   public void testChunkTooBig() throws Exception
   {
-    final int maxChunkSize = CompressedPools.BUFFER_SIZE / Integer.BYTES;
+    final int maxChunkSize = CompressedPools.BUFFER_SIZE / Ints.BYTES;
     setupLargeChunks(maxChunkSize + 1, 10 * (maxChunkSize + 1));
   }
 

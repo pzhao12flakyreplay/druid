@@ -41,21 +41,18 @@ public class ExpressionColumnValueSelector implements ColumnValueSelector<ExprEv
   @Override
   public double getDouble()
   {
-    // No Assert for null handling as ExprEval already have it.
     return getObject().asDouble();
   }
 
   @Override
   public float getFloat()
   {
-    // No Assert for null handling as ExprEval already have it.
     return (float) getObject().asDouble();
   }
 
   @Override
   public long getLong()
   {
-    // No Assert for null handling as ExprEval already have it.
     return getObject().asLong();
   }
 
@@ -77,11 +74,5 @@ public class ExpressionColumnValueSelector implements ColumnValueSelector<ExprEv
   {
     inspector.visit("expression", expression);
     inspector.visit("bindings", bindings);
-  }
-
-  @Override
-  public boolean isNull()
-  {
-    return getObject().isNull();
   }
 }

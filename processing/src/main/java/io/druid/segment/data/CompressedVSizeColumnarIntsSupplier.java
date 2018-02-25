@@ -21,6 +21,8 @@ package io.druid.segment.data;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.primitives.Ints;
+import com.google.common.primitives.Shorts;
 import io.druid.collections.ResourceHolder;
 import io.druid.common.utils.ByteUtils;
 import io.druid.java.util.common.IAE;
@@ -94,11 +96,11 @@ public class CompressedVSizeColumnarIntsSupplier implements WritableSupplier<Col
     // beyond the end of the last value, since we use buffer.getInt() to read values.
     // for numBytes 1, 2 we remove the need for padding by reading bytes or shorts directly.
     switch (numBytes) {
-      case Short.BYTES:
+      case Shorts.BYTES:
       case 1:
         return 0;
       default:
-        return Integer.BYTES - numBytes;
+        return Ints.BYTES - numBytes;
     }
   }
 
@@ -111,9 +113,9 @@ public class CompressedVSizeColumnarIntsSupplier implements WritableSupplier<Col
   public ColumnarInts get()
   {
     // optimized versions for int, short, and byte columns
-    if (numBytes == Integer.BYTES) {
+    if (numBytes == Ints.BYTES) {
       return new CompressedFullSizeColumnarInts();
-    } else if (numBytes == Short.BYTES) {
+    } else if (numBytes == Shorts.BYTES) {
       return new CompressedShortSizeColumnarInts();
     } else if (numBytes == 1) {
       return new CompressedByteSizeColumnarInts();
@@ -204,7 +206,7 @@ public class CompressedVSizeColumnarIntsSupplier implements WritableSupplier<Col
                   private final ByteBuffer retVal =
                       compression.getCompressor().allocateInBuffer(chunkBytes, closer).order(byteOrder);
                   private final boolean isBigEndian = byteOrder.equals(ByteOrder.BIG_ENDIAN);
-                  private final ByteBuffer helperBuf = ByteBuffer.allocate(Integer.BYTES).order(byteOrder);
+                  private final ByteBuffer helperBuf = ByteBuffer.allocate(Ints.BYTES).order(byteOrder);
 
                   @Override
                   public boolean hasNext()
@@ -230,7 +232,7 @@ public class CompressedVSizeColumnarIntsSupplier implements WritableSupplier<Col
                   {
                     helperBuf.putInt(0, value);
                     if (isBigEndian) {
-                      retVal.put(helperBuf.array(), Integer.BYTES - numBytes, numBytes);
+                      retVal.put(helperBuf.array(), Ints.BYTES - numBytes, numBytes);
                     } else {
                       retVal.put(helperBuf.array(), 0, numBytes);
                     }

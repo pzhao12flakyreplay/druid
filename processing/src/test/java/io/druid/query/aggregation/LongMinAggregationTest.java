@@ -19,6 +19,7 @@
 
 package io.druid.query.aggregation;
 
+import com.google.common.primitives.Longs;
 import io.druid.segment.ColumnSelectorFactory;
 import io.druid.segment.TestHelper;
 import org.easymock.EasyMock;
@@ -73,7 +74,7 @@ public class LongMinAggregationTest
   {
     LongMinBufferAggregator agg = (LongMinBufferAggregator) longMinAggFactory.factorizeBuffered(colSelectorFactory);
 
-    ByteBuffer buffer = ByteBuffer.wrap(new byte[Long.BYTES]);
+    ByteBuffer buffer = ByteBuffer.wrap(new byte[Longs.BYTES]);
     agg.init(buffer, 0);
 
     aggregate(selector, agg, buffer, 0);

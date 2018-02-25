@@ -25,9 +25,12 @@ import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import io.druid.java.util.common.logger.Logger;
+import com.google.common.primitives.Chars;
+import com.google.common.primitives.Ints;
 import io.druid.java.util.emitter.service.ServiceEmitter;
 import io.druid.java.util.emitter.service.ServiceMetricEvent;
+
+import io.druid.java.util.common.logger.Logger;
 import net.jpountz.lz4.LZ4Compressor;
 import net.jpountz.lz4.LZ4Factory;
 import net.jpountz.lz4.LZ4FastDecompressor;
@@ -70,7 +73,7 @@ public class CaffeineCache implements io.druid.client.cache.Cache
           .maximumWeight(config.getSizeInBytes())
           .weigher((NamedKey key, byte[] value) -> value.length
                                                    + key.key.length
-                                                   + key.namespace.length() * Character.BYTES
+                                                   + key.namespace.length() * Chars.BYTES
                                                    + FIXED_COST);
     }
     builder.executor(executor);
@@ -173,7 +176,7 @@ public class CaffeineCache implements io.druid.client.cache.Cache
     }
     final int decompressedLen = ByteBuffer.wrap(bytes).getInt();
     final byte[] out = new byte[decompressedLen];
-    LZ4_DECOMPRESSOR.decompress(bytes, Integer.BYTES, out, 0, out.length);
+    LZ4_DECOMPRESSOR.decompress(bytes, Ints.BYTES, out, 0, out.length);
     return out;
   }
 
@@ -182,7 +185,7 @@ public class CaffeineCache implements io.druid.client.cache.Cache
     final int len = LZ4_COMPRESSOR.maxCompressedLength(value.length);
     final byte[] out = new byte[len];
     final int compressedSize = LZ4_COMPRESSOR.compress(value, 0, value.length, out, 0);
-    return ByteBuffer.allocate(compressedSize + Integer.BYTES)
+    return ByteBuffer.allocate(compressedSize + Ints.BYTES)
                      .putInt(value.length)
                      .put(out, 0, compressedSize)
                      .array();

@@ -22,8 +22,9 @@ package io.druid.query.aggregation.last;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
-import io.druid.collections.SerializablePair;
+import com.google.common.primitives.Longs;
 import io.druid.java.util.common.StringUtils;
+import io.druid.collections.SerializablePair;
 import io.druid.java.util.common.UOE;
 import io.druid.query.aggregation.AggregateCombiner;
 import io.druid.query.aggregation.Aggregator;
@@ -134,7 +135,7 @@ public class FloatLastAggregatorFactory extends AggregatorFactory
             long lastTime = buf.getLong(position);
             if (pair.lhs >= lastTime) {
               buf.putLong(position, pair.lhs);
-              buf.putFloat(position + Long.BYTES, pair.rhs);
+              buf.putFloat(position + Longs.BYTES, pair.rhs);
             }
           }
 

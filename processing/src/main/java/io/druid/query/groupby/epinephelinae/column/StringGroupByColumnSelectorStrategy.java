@@ -20,6 +20,7 @@
 package io.druid.query.groupby.epinephelinae.column;
 
 import com.google.common.base.Preconditions;
+import com.google.common.primitives.Ints;
 import io.druid.segment.ColumnValueSelector;
 import io.druid.segment.DimensionSelector;
 import io.druid.segment.data.IndexedInts;
@@ -32,7 +33,7 @@ public class StringGroupByColumnSelectorStrategy implements GroupByColumnSelecto
   @Override
   public int getGroupingKeySize()
   {
-    return Integer.BYTES;
+    return Ints.BYTES;
   }
 
   @Override

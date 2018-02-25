@@ -20,6 +20,7 @@
 package io.druid.segment;
 
 import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import io.druid.collections.bitmap.BitmapFactory;
 import io.druid.collections.bitmap.ImmutableBitmap;
@@ -27,7 +28,6 @@ import io.druid.collections.bitmap.MutableBitmap;
 import io.druid.collections.spatial.ImmutableRTree;
 import io.druid.collections.spatial.RTree;
 import io.druid.collections.spatial.split.LinearGutmanSplitStrategy;
-import io.druid.common.config.NullHandling;
 import io.druid.java.util.common.ISE;
 import io.druid.java.util.common.StringUtils;
 import io.druid.java.util.common.logger.Logger;
@@ -63,11 +63,8 @@ public class StringDimensionMergerV9 implements DimensionMergerV9<int[]>
 {
   private static final Logger log = new Logger(StringDimensionMergerV9.class);
 
-  protected static final Indexed<String> NULL_STR_DIM_VAL = new ArrayIndexed<>(
-      new String[]{(String) null},
-      String.class
-  );
-  protected static final int[] NULL_STR_DIM_ARRAY = new int[]{0};
+  private static final Indexed<String> EMPTY_STR_DIM_VAL = new ArrayIndexed<>(new String[]{""}, String.class);
+  private static final int[] EMPTY_STR_DIM_ARRAY = new int[]{0};
   private static final Splitter SPLITTER = Splitter.on(",");
 
   private ColumnarIntsSerializer encodedValueWriter;
@@ -148,7 +145,7 @@ public class StringDimensionMergerV9 implements DimensionMergerV9<int[]>
      */
     if (convertMissingValues && !hasNull) {
       hasNull = true;
-      dimValueLookups[adapters.size()] = dimValueLookup = NULL_STR_DIM_VAL;
+      dimValueLookups[adapters.size()] = dimValueLookup = EMPTY_STR_DIM_VAL;
       numMergeIndex++;
     }
 
@@ -187,7 +184,7 @@ public class StringDimensionMergerV9 implements DimensionMergerV9<int[]>
   {
     for (String value : dictionaryValues) {
       dictionaryWriter.write(value);
-      value = NullHandling.emptyToNullIfNeeded(value);
+      value = Strings.emptyToNull(value);
       if (dictionarySize == 0) {
         firstDictionaryValue = value;
       }
@@ -234,7 +231,7 @@ public class StringDimensionMergerV9 implements DimensionMergerV9<int[]>
     // For strings, convert missing values to null/empty if conversion flag is set
     // But if bitmap/dictionary is not used, always convert missing to 0
     if (dimVals == null) {
-      return convertMissingValues ? NULL_STR_DIM_ARRAY : null;
+      return convertMissingValues ? EMPTY_STR_DIM_ARRAY : null;
     }
 
     int[] newDimVals = new int[dimVals.length];

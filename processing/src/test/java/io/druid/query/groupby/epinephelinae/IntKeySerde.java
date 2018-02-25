@@ -44,12 +44,12 @@ public class IntKeySerde implements Grouper.KeySerde<Integer>
     }
   };
 
-  private final ByteBuffer buf = ByteBuffer.allocate(Integer.BYTES);
+  private final ByteBuffer buf = ByteBuffer.allocate(Ints.BYTES);
 
   @Override
   public int keySize()
   {
-    return Integer.BYTES;
+    return Ints.BYTES;
   }
 
   @Override

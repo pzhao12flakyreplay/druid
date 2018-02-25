@@ -27,7 +27,6 @@ import io.druid.collections.bitmap.RoaringBitmapFactory;
 import io.druid.collections.bitmap.WrappedImmutableRoaringBitmap;
 import org.roaringbitmap.buffer.ImmutableRoaringBitmap;
 
-import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 
 /**
@@ -78,7 +77,6 @@ public class RoaringBitmapSerdeFactory implements BitmapSerdeFactory
     }
 
     @Override
-    @Nullable
     public ImmutableBitmap fromByteBuffer(ByteBuffer buffer, int numBytes)
     {
       buffer.limit(buffer.position() + numBytes);

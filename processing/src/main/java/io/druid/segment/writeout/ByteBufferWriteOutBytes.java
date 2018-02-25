@@ -98,14 +98,14 @@ public abstract class ByteBufferWriteOutBytes extends WriteOutBytes
   public void writeInt(int v)
   {
     checkOpen();
-    if (headBuffer.remaining() >= Integer.BYTES) {
+    if (headBuffer.remaining() >= Ints.BYTES) {
       headBuffer.putInt(v);
-      size += Integer.BYTES;
+      size += Ints.BYTES;
     } else {
-      ensureCapacity(Integer.BYTES);
-      if (headBuffer.remaining() >= Integer.BYTES) {
+      ensureCapacity(Ints.BYTES);
+      if (headBuffer.remaining() >= Ints.BYTES) {
         headBuffer.putInt(v);
-        size += Integer.BYTES;
+        size += Ints.BYTES;
       } else {
         write(v >> 24);
         write(v >> 16);

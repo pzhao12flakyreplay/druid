@@ -19,7 +19,6 @@
 
 package io.druid.segment;
 
-import io.druid.common.config.NullHandling;
 import io.druid.guice.annotations.PublicApi;
 import io.druid.query.monomorphicprocessing.RuntimeShapeInspector;
 
@@ -29,11 +28,9 @@ import javax.annotation.Nullable;
  * Represents "absent" column.
  */
 @PublicApi
-public class NilColumnValueSelector implements ColumnValueSelector
+public final class NilColumnValueSelector implements ColumnValueSelector
 {
-  private static final NilColumnValueSelector INSTANCE = NullHandling.sqlCompatible()
-                                                         ? new SqlCompatibleNilColumnValueSelector()
-                                                         : new NilColumnValueSelector();
+  private static final NilColumnValueSelector INSTANCE = new NilColumnValueSelector();
 
   public static NilColumnValueSelector instance()
   {
@@ -43,9 +40,7 @@ public class NilColumnValueSelector implements ColumnValueSelector
   private NilColumnValueSelector() {}
 
   /**
-   * always returns 0, if {@link NullHandling#NULL_HANDLING_CONFIG_STRING} is set to true,
-   * or always throws an exception, if {@link NullHandling#NULL_HANDLING_CONFIG_STRING} is
-   * set to false.
+   * Always returns 0.0.
    */
   @Override
   public double getDouble()
@@ -54,9 +49,7 @@ public class NilColumnValueSelector implements ColumnValueSelector
   }
 
   /**
-   * always returns 0.0f, if {@link NullHandling#NULL_HANDLING_CONFIG_STRING} is set to true,
-   * or always throws an exception, if {@link NullHandling#NULL_HANDLING_CONFIG_STRING} is
-   * set to false.
+   * Always returns 0.0f.
    */
   @Override
   public float getFloat()
@@ -65,9 +58,7 @@ public class NilColumnValueSelector implements ColumnValueSelector
   }
 
   /**
-   * always returns 0L, if {@link NullHandling#NULL_HANDLING_CONFIG_STRING} is set to true,
-   * or always throws an exception, if {@link NullHandling#NULL_HANDLING_CONFIG_STRING} is
-   * set to false.
+   * Always returns 0L.
    */
   @Override
   public long getLong()
@@ -95,36 +86,8 @@ public class NilColumnValueSelector implements ColumnValueSelector
   }
 
   @Override
-  public boolean isNull()
-  {
-    return true;
-  }
-
-  @Override
   public void inspectRuntimeShape(RuntimeShapeInspector inspector)
   {
     // nothing to inspect
-  }
-
-  private static class SqlCompatibleNilColumnValueSelector extends NilColumnValueSelector
-  {
-    @Override
-    public double getDouble()
-    {
-      throw new IllegalStateException("Cannot return null value as double");
-    }
-
-    @Override
-    public float getFloat()
-    {
-      throw new IllegalStateException("Cannot return null value as float");
-    }
-    
-    @Override
-    public long getLong()
-    {
-      throw new IllegalStateException("Cannot return null value as long");
-    }
-
   }
 }

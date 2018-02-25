@@ -31,7 +31,6 @@ import io.druid.java.util.common.logger.Logger;
 import io.druid.segment.SegmentUtils;
 import io.druid.segment.loading.DataSegmentPusher;
 import io.druid.timeline.DataSegment;
-import org.joda.time.format.ISODateTimeFormat;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -71,38 +70,7 @@ public class AzureDataSegmentPusher implements DataSegmentPusher
   @Override
   public String getPathForHadoop()
   {
-    String hadoopPath = StringUtils.format(
-        "%s://%s@%s.%s/",
-        AzureDataSegmentPuller.AZURE_STORAGE_HADOOP_PROTOCOL,
-        config.getContainer(),
-        config.getAccount(),
-        AzureDataSegmentPuller.AZURE_STORAGE_HOST_ADDRESS
-    );
-
-    log.info("Using Azure blob storage Hadoop path: %s", hadoopPath);
-
-    return hadoopPath;
-  }
-
-  @Override
-  public String getStorageDir(DataSegment dataSegment)
-  {
-    String seg = JOINER.join(
-        dataSegment.getDataSource(),
-        StringUtils.format(
-            "%s_%s",
-            // Use ISODateTimeFormat.basicDateTime() format, to avoid using colons in file path.
-            dataSegment.getInterval().getStart().toString(ISODateTimeFormat.basicDateTime()),
-            dataSegment.getInterval().getEnd().toString(ISODateTimeFormat.basicDateTime())
-        ),
-        dataSegment.getVersion().replace(":", "_"),
-        dataSegment.getShardSpec().getPartitionNum()
-    );
-
-    log.info("DataSegment: [%s]", seg);
-
-    // Replace colons with underscores, since they are not supported through wasb:// prefix
-    return seg;
+    return null;
   }
 
   @Override
@@ -135,7 +103,7 @@ public class AzureDataSegmentPusher implements DataSegmentPusher
 
   public DataSegment uploadDataSegment(
       DataSegment segment,
-      final int binaryVersion,
+      final int version,
       final long size,
       final File compressedSegmentData,
       final File descriptorFile,
@@ -150,7 +118,7 @@ public class AzureDataSegmentPusher implements DataSegmentPusher
     final DataSegment outSegment = segment
         .withSize(size)
         .withLoadSpec(this.makeLoadSpec(new URI(azurePaths.get("index"))))
-        .withBinaryVersion(binaryVersion);
+        .withBinaryVersion(version);
 
     log.info("Deleting file [%s]", compressedSegmentData);
     compressedSegmentData.delete();
@@ -167,7 +135,7 @@ public class AzureDataSegmentPusher implements DataSegmentPusher
   {
     log.info("Uploading [%s] to Azure.", indexFilesDir);
 
-    final int binaryVersion = SegmentUtils.getVersionFromDir(indexFilesDir);
+    final int version = SegmentUtils.getVersionFromDir(indexFilesDir);
     File zipOutFile = null;
     File descriptorFile = null;
 
@@ -179,7 +147,7 @@ public class AzureDataSegmentPusher implements DataSegmentPusher
       final Map<String, String> azurePaths = getAzurePaths(segment);
 
       return AzureUtils.retryAzureOperation(
-          () -> uploadDataSegment(segment, binaryVersion, size, outFile, descFile, azurePaths, replaceExisting),
+          () -> uploadDataSegment(segment, version, size, outFile, descFile, azurePaths, replaceExisting),
           config.getMaxTries()
       );
     }

@@ -21,6 +21,7 @@ package io.druid.query.extraction;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.primitives.Doubles;
 import io.druid.java.util.common.StringUtils;
 
 import javax.annotation.Nullable;
@@ -113,7 +114,7 @@ public class BucketExtractionFn implements ExtractionFn
   @Override
   public byte[] getCacheKey()
   {
-    return ByteBuffer.allocate(1 + 2 * Double.BYTES)
+    return ByteBuffer.allocate(1 + 2 * Doubles.BYTES)
                      .put(ExtractionCacheHelper.CACHE_TYPE_ID_BUCKET)
                      .putDouble(size)
                      .putDouble(offset)

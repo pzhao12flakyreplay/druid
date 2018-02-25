@@ -19,8 +19,6 @@
 
 package io.druid.segment;
 
-import javax.annotation.Nullable;
-
 /**
  * This interface is convenient for implementation of "double-sourcing" {@link ColumnValueSelector}s, it provides
  * default implementations for all {@link ColumnValueSelector}'s methods except {@link #getDouble()}.
@@ -61,12 +59,8 @@ public interface DoubleColumnSelector extends ColumnValueSelector<Double>
    */
   @Deprecated
   @Override
-  @Nullable
   default Double getObject()
   {
-    if (isNull()) {
-      return null;
-    }
     return getDouble();
   }
 

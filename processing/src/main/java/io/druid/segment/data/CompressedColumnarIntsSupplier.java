@@ -21,6 +21,7 @@ package io.druid.segment.data;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.primitives.Ints;
 import io.druid.collections.ResourceHolder;
 import io.druid.java.util.common.IAE;
 import io.druid.java.util.common.guava.CloseQuietly;
@@ -41,7 +42,7 @@ import java.util.Iterator;
 public class CompressedColumnarIntsSupplier implements WritableSupplier<ColumnarInts>
 {
   public static final byte VERSION = 0x2;
-  public static final int MAX_INTS_IN_BUFFER = CompressedPools.BUFFER_SIZE / Integer.BYTES;
+  public static final int MAX_INTS_IN_BUFFER = CompressedPools.BUFFER_SIZE / Ints.BYTES;
 
   private static MetaSerdeHelper<CompressedColumnarIntsSupplier> metaSerdeHelper = MetaSerdeHelper
       .firstWriteByte((CompressedColumnarIntsSupplier x) -> VERSION)
@@ -160,7 +161,7 @@ public class CompressedColumnarIntsSupplier implements WritableSupplier<Columnar
                   final IntBuffer myBuffer = buffer.asReadOnlyBuffer();
                   final ByteBuffer retVal = compression
                       .getCompressor()
-                      .allocateInBuffer(chunkFactor * Integer.BYTES, closer)
+                      .allocateInBuffer(chunkFactor * Ints.BYTES, closer)
                       .order(byteOrder);
                   final IntBuffer retValAsIntBuffer = retVal.asIntBuffer();
 
@@ -180,7 +181,7 @@ public class CompressedColumnarIntsSupplier implements WritableSupplier<Columnar
                     retValAsIntBuffer.clear();
                     retValAsIntBuffer.put(myBuffer);
                     myBuffer.limit(initialLimit);
-                    retVal.clear().limit(retValAsIntBuffer.position() * Integer.BYTES);
+                    retVal.clear().limit(retValAsIntBuffer.position() * Ints.BYTES);
                     return retVal;
                   }
 
@@ -193,7 +194,7 @@ public class CompressedColumnarIntsSupplier implements WritableSupplier<Columnar
               }
             },
             compression,
-            chunkFactor * Integer.BYTES,
+            chunkFactor * Ints.BYTES,
             byteOrder,
             closer
         ),
@@ -227,7 +228,7 @@ public class CompressedColumnarIntsSupplier implements WritableSupplier<Columnar
                 {
                   private final ByteBuffer retVal = compression
                       .getCompressor()
-                      .allocateInBuffer(chunkFactor * Integer.BYTES, closer)
+                      .allocateInBuffer(chunkFactor * Ints.BYTES, closer)
                       .order(byteOrder);
                   int position = 0;
 
@@ -258,7 +259,7 @@ public class CompressedColumnarIntsSupplier implements WritableSupplier<Columnar
               }
             },
             compression,
-            chunkFactor * Integer.BYTES,
+            chunkFactor * Ints.BYTES,
             byteOrder,
             closer
         ),

@@ -227,7 +227,7 @@ public class CompactionTaskTest
     return new IndexTuningConfig(
         5000000,
         500000,
-        1000000L,
+        1000000,
         null,
         null,
         new IndexSpec(
@@ -241,7 +241,6 @@ public class CompactionTaskTest
         false,
         true,
         false,
-        null,
         100L,
         null
     );

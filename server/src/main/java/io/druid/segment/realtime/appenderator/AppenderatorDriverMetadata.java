@@ -24,7 +24,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import io.druid.segment.realtime.appenderator.SegmentWithState.SegmentState;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,13 +33,13 @@ import java.util.stream.Collectors;
 
 public class AppenderatorDriverMetadata
 {
-  private final Map<String, List<SegmentWithState>> segments;
+  private final Map<String, List<AppenderatorDriver.SegmentWithState>> segments;
   private final Map<String, String> lastSegmentIds;
   private final Object callerMetadata;
 
   @JsonCreator
   public AppenderatorDriverMetadata(
-      @JsonProperty("segments") Map<String, List<SegmentWithState>> segments,
+      @JsonProperty("segments") Map<String, List<AppenderatorDriver.SegmentWithState>> segments,
       @JsonProperty("lastSegmentIds") Map<String, String> lastSegmentIds,
       @JsonProperty("callerMetadata") Object callerMetadata,
       // Next two properties are for backwards compatibility, should be removed on versions greater than 0.12.x
@@ -58,7 +57,7 @@ public class AppenderatorDriverMetadata
     );
     if (segments == null) {
       // convert old metadata to new one
-      final Map<String, List<SegmentWithState>> newMetadata = Maps.newHashMap();
+      final Map<String, List<AppenderatorDriver.SegmentWithState>> newMetadata = Maps.newHashMap();
       final Set<String> activeSegmentsAlreadySeen = Sets.newHashSet(); // temp data structure
 
       activeSegments.entrySet()
@@ -68,7 +67,10 @@ public class AppenderatorDriverMetadata
                                         .stream()
                                         .map(segmentIdentifier -> {
                                           activeSegmentsAlreadySeen.add(segmentIdentifier.toString());
-                                          return SegmentWithState.newSegment(segmentIdentifier);
+                                          return new AppenderatorDriver.SegmentWithState(
+                                              segmentIdentifier,
+                                              AppenderatorDriver.SegmentState.ACTIVE
+                                          );
                                         })
                                         .collect(Collectors.toList())
                     ));
@@ -82,9 +84,9 @@ public class AppenderatorDriverMetadata
                                                 .stream()
                                                 .filter(segmentIdentifier -> !activeSegmentsAlreadySeen.contains(
                                                     segmentIdentifier.toString()))
-                                                .map(segmentIdentifier -> SegmentWithState.newSegment(
+                                                .map(segmentIdentifier -> new AppenderatorDriver.SegmentWithState(
                                                     segmentIdentifier,
-                                                    SegmentState.APPEND_FINISHED
+                                                    AppenderatorDriver.SegmentState.INACTIVE
                                                 ))
                                                 .collect(Collectors.toList())
                             ));
@@ -97,7 +99,7 @@ public class AppenderatorDriverMetadata
   }
 
   public AppenderatorDriverMetadata(
-      Map<String, List<SegmentWithState>> segments,
+      Map<String, List<AppenderatorDriver.SegmentWithState>> segments,
       Map<String, String> lastSegmentIds,
       Object callerMetadata
   )
@@ -106,7 +108,7 @@ public class AppenderatorDriverMetadata
   }
 
   @JsonProperty
-  public Map<String, List<SegmentWithState>> getSegments()
+  public Map<String, List<AppenderatorDriver.SegmentWithState>> getSegments()
   {
     return segments;
   }

@@ -121,12 +121,6 @@ class IncrementalIndexColumnSelectorFactory implements ColumnSelectorFactory
         {
           // nothing to inspect
         }
-
-        @Override
-        public boolean isNull()
-        {
-          return false;
-        }
       }
       return new TimeLongColumnSelector();
     }

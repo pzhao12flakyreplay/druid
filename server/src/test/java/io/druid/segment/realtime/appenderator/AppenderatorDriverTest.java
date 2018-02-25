@@ -27,6 +27,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Ordering;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.druid.data.input.Committer;
 import io.druid.data.input.InputRow;
@@ -42,7 +44,10 @@ import io.druid.segment.realtime.FireDepartmentMetrics;
 import io.druid.segment.realtime.plumber.SegmentHandoffNotifier;
 import io.druid.segment.realtime.plumber.SegmentHandoffNotifierFactory;
 import io.druid.timeline.DataSegment;
+import io.druid.timeline.TimelineObjectHolder;
+import io.druid.timeline.VersionedIntervalTimeline;
 import io.druid.timeline.partition.NumberedShardSpec;
+import io.druid.timeline.partition.PartitionChunk;
 import org.joda.time.DateTime;
 import org.junit.After;
 import org.junit.Assert;
@@ -61,7 +66,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-public class StreamAppenderatorDriverTest
+public class AppenderatorDriverTest
 {
   private static final String DATA_SOURCE = "foo";
   private static final String VERSION = "abc123";
@@ -89,10 +94,10 @@ public class StreamAppenderatorDriverTest
       )
   );
 
-  private SegmentAllocator allocator;
-  private AppenderatorTester appenderatorTester;
-  private TestSegmentHandoffNotifierFactory segmentHandoffNotifierFactory;
-  private StreamAppenderatorDriver driver;
+  SegmentAllocator allocator;
+  AppenderatorTester appenderatorTester;
+  TestSegmentHandoffNotifierFactory segmentHandoffNotifierFactory;
+  AppenderatorDriver driver;
 
   @Before
   public void setUp()
@@ -100,11 +105,11 @@ public class StreamAppenderatorDriverTest
     appenderatorTester = new AppenderatorTester(MAX_ROWS_IN_MEMORY);
     allocator = new TestSegmentAllocator(DATA_SOURCE, Granularities.HOUR);
     segmentHandoffNotifierFactory = new TestSegmentHandoffNotifierFactory();
-    driver = new StreamAppenderatorDriver(
+    driver = new AppenderatorDriver(
         appenderatorTester.getAppenderator(),
         allocator,
         segmentHandoffNotifierFactory,
-        new TestUsedSegmentChecker(appenderatorTester),
+        new TestUsedSegmentChecker(),
         OBJECT_MAPPER,
         new FireDepartmentMetrics()
     );
@@ -126,7 +131,7 @@ public class StreamAppenderatorDriverTest
 
     for (int i = 0; i < ROWS.size(); i++) {
       committerSupplier.setMetadata(i + 1);
-      Assert.assertTrue(driver.add(ROWS.get(i), "dummy", committerSupplier, false, true).isOk());
+      Assert.assertTrue(driver.add(ROWS.get(i), "dummy", committerSupplier).isOk());
     }
 
     final SegmentsAndMetadata published = driver.publish(
@@ -172,7 +177,7 @@ public class StreamAppenderatorDriverTest
               2.0
           )
       );
-      final AppenderatorDriverAddResult addResult = driver.add(row, "dummy", committerSupplier, false, true);
+      final AppenderatorDriverAddResult addResult = driver.add(row, "dummy", committerSupplier);
       Assert.assertTrue(addResult.isOk());
       if (addResult.getNumRowsInSegment() > MAX_ROWS_PER_SEGMENT) {
         driver.moveSegmentOut("dummy", ImmutableList.of(addResult.getSegmentIdentifier()));
@@ -205,7 +210,7 @@ public class StreamAppenderatorDriverTest
 
     for (int i = 0; i < ROWS.size(); i++) {
       committerSupplier.setMetadata(i + 1);
-      Assert.assertTrue(driver.add(ROWS.get(i), "dummy", committerSupplier, false, true).isOk());
+      Assert.assertTrue(driver.add(ROWS.get(i), "dummy", committerSupplier).isOk());
     }
 
     final SegmentsAndMetadata published = driver.publish(
@@ -231,7 +236,7 @@ public class StreamAppenderatorDriverTest
     // Add the first row and publish immediately
     {
       committerSupplier.setMetadata(1);
-      Assert.assertTrue(driver.add(ROWS.get(0), "dummy", committerSupplier, false, true).isOk());
+      Assert.assertTrue(driver.add(ROWS.get(0), "dummy", committerSupplier).isOk());
 
       final SegmentsAndMetadata segmentsAndMetadata = driver.publishAndRegisterHandoff(
           makeOkPublisher(),
@@ -252,7 +257,7 @@ public class StreamAppenderatorDriverTest
     // Add the second and third rows and publish immediately
     for (int i = 1; i < ROWS.size(); i++) {
       committerSupplier.setMetadata(i + 1);
-      Assert.assertTrue(driver.add(ROWS.get(i), "dummy", committerSupplier, false, true).isOk());
+      Assert.assertTrue(driver.add(ROWS.get(i), "dummy", committerSupplier).isOk());
 
       final SegmentsAndMetadata segmentsAndMetadata = driver.publishAndRegisterHandoff(
           makeOkPublisher(),
@@ -297,11 +302,11 @@ public class StreamAppenderatorDriverTest
     Assert.assertNull(driver.startJob());
 
     committerSupplier.setMetadata(1);
-    Assert.assertTrue(driver.add(ROWS.get(0), "sequence_0", committerSupplier, false, true).isOk());
+    Assert.assertTrue(driver.add(ROWS.get(0), "sequence_0", committerSupplier).isOk());
 
     for (int i = 1; i < ROWS.size(); i++) {
       committerSupplier.setMetadata(i + 1);
-      Assert.assertTrue(driver.add(ROWS.get(i), "sequence_1", committerSupplier, false, true).isOk());
+      Assert.assertTrue(driver.add(ROWS.get(i), "sequence_1", committerSupplier).isOk());
     }
 
     final ListenableFuture<SegmentsAndMetadata> futureForSequence0 = driver.publishAndRegisterHandoff(
@@ -494,6 +499,35 @@ public class StreamAppenderatorDriverTest
           // Do nothing
         }
       };
+    }
+  }
+
+  private class TestUsedSegmentChecker implements UsedSegmentChecker
+  {
+    @Override
+    public Set<DataSegment> findUsedSegments(Set<SegmentIdentifier> identifiers) throws IOException
+    {
+      final VersionedIntervalTimeline<String, DataSegment> timeline = new VersionedIntervalTimeline<>(Ordering.natural());
+      for (DataSegment dataSegment : appenderatorTester.getPushedSegments()) {
+        timeline.add(
+            dataSegment.getInterval(),
+            dataSegment.getVersion(),
+            dataSegment.getShardSpec().createChunk(dataSegment)
+        );
+      }
+
+      final Set<DataSegment> retVal = Sets.newHashSet();
+      for (SegmentIdentifier identifier : identifiers) {
+        for (TimelineObjectHolder<String, DataSegment> holder : timeline.lookup(identifier.getInterval())) {
+          for (PartitionChunk<DataSegment> chunk : holder.getObject()) {
+            if (identifiers.contains(SegmentIdentifier.fromDataSegment(chunk.getObject()))) {
+              retVal.add(chunk.getObject());
+            }
+          }
+        }
+      }
+
+      return retVal;
     }
   }
 }

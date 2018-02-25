@@ -84,21 +84,18 @@ public class SingleStringInputCachingExpressionColumnValueSelector implements Co
   @Override
   public double getDouble()
   {
-    // No Assert for null handling as ExprEval already have it.
     return eval().asDouble();
   }
 
   @Override
   public float getFloat()
   {
-    // No Assert for null handling as ExprEval already have it.
     return (float) eval().asDouble();
   }
 
   @Override
   public long getLong()
   {
-    // No Assert for null handling as ExprEval already have it.
     return eval().asLong();
   }
 
@@ -134,12 +131,6 @@ public class SingleStringInputCachingExpressionColumnValueSelector implements Co
     }
 
     return expression.eval(bindings);
-  }
-
-  @Override
-  public boolean isNull()
-  {
-    return eval().isNull();
   }
 
   public static class LruEvalCache

@@ -22,12 +22,15 @@ package io.druid.segment;
 import com.google.common.base.Preconditions;
 import io.druid.query.monomorphicprocessing.RuntimeShapeInspector;
 
+import javax.annotation.Nullable;
+
 public class ConstantColumnValueSelector<T> implements ColumnValueSelector<T>
 {
   private long longValue;
   private float floatValue;
   private double doubleValue;
 
+  @Nullable
   private T objectValue;
 
   private Class<T> objectClass;
@@ -36,7 +39,7 @@ public class ConstantColumnValueSelector<T> implements ColumnValueSelector<T>
       final long longValue,
       final float floatValue,
       final double doubleValue,
-      final T objectValue,
+      @Nullable final T objectValue,
       final Class<T> objectClass
   )
   {
@@ -65,6 +68,7 @@ public class ConstantColumnValueSelector<T> implements ColumnValueSelector<T>
     return longValue;
   }
 
+  @Nullable
   @Override
   public T getObject()
   {
@@ -81,12 +85,5 @@ public class ConstantColumnValueSelector<T> implements ColumnValueSelector<T>
   public void inspectRuntimeShape(final RuntimeShapeInspector inspector)
   {
     // Nothing here: objectValue is nullable but getObject is not @CalledFromHotLoop
-  }
-
-  @Override
-  public boolean isNull()
-  {
-    // return false always as the primitive values for this selector can never be null.
-    return false;
   }
 }

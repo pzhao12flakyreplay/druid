@@ -19,8 +19,6 @@
 
 package io.druid.segment;
 
-import javax.annotation.Nullable;
-
 /**
  * This interface is convenient for implementation of "float-sourcing" {@link ColumnValueSelector}s, it provides default
  * implementations for all {@link ColumnValueSelector}'s methods except {@link #getFloat()}.
@@ -61,12 +59,8 @@ public interface FloatColumnSelector extends ColumnValueSelector<Float>
    */
   @Deprecated
   @Override
-  @Nullable
   default Float getObject()
   {
-    if (isNull()) {
-      return null;
-    }
     return getFloat();
   }
 

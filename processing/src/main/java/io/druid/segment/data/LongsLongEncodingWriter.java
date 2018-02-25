@@ -19,6 +19,7 @@
 
 package io.druid.segment.data;
 
+import com.google.common.primitives.Longs;
 import io.druid.segment.writeout.WriteOutBytes;
 
 import java.io.IOException;
@@ -37,7 +38,7 @@ public class LongsLongEncodingWriter implements CompressionFactory.LongEncodingW
   public LongsLongEncodingWriter(ByteOrder order)
   {
     this.order = order;
-    orderBuffer = ByteBuffer.allocate(Long.BYTES);
+    orderBuffer = ByteBuffer.allocate(Longs.BYTES);
     orderBuffer.order(order);
   }
 
@@ -91,12 +92,12 @@ public class LongsLongEncodingWriter implements CompressionFactory.LongEncodingW
   @Override
   public int getBlockSize(int bytesPerBlock)
   {
-    return bytesPerBlock / Long.BYTES;
+    return bytesPerBlock / Longs.BYTES;
   }
 
   @Override
   public int getNumBytes(int values)
   {
-    return values * Long.BYTES;
+    return values * Longs.BYTES;
   }
 }

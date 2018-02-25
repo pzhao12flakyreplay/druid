@@ -21,8 +21,11 @@ package io.druid.query.cache;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import io.druid.java.util.common.Cacheable;
+import com.google.common.primitives.Doubles;
+import com.google.common.primitives.Floats;
+import com.google.common.primitives.Ints;
 import io.druid.java.util.common.StringUtils;
+import io.druid.java.util.common.Cacheable;
 import org.junit.Test;
 
 import java.nio.ByteBuffer;
@@ -64,14 +67,14 @@ public class CacheKeyBuilderTest
     final int expectedSize = 1                                           // id
                              + 1                                         // bool
                              + 4                                         // 'test'
-                             + Integer.BYTES                             // 10
-                             + Float.BYTES                               // 0.1f
-                             + Double.BYTES                              // 2.3
+                             + Ints.BYTES                                // 10
+                             + Floats.BYTES                              // 0.1f
+                             + Doubles.BYTES                             // 2.3
                              + CacheKeyBuilder.STRING_SEPARATOR.length   // byte array
-                             + Float.BYTES * 2                           // 10.0f, 11.0f
-                             + Integer.BYTES + 5 * 2 + 1                 // 'test1' 'test2'
+                             + Floats.BYTES * 2                          // 10.0f, 11.0f
+                             + Ints.BYTES + 5 * 2 + 1                    // 'test1' 'test2'
                              + cacheable.getCacheKey().length            // cacheable
-                             + Integer.BYTES + 4                         // cacheable list
+                             + Ints.BYTES + 4                                // cacheable list
                              + 11;                                       // type keys
     assertEquals(expectedSize, actual.length);
 

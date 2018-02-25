@@ -164,13 +164,6 @@ public class AggregatorUtil
         {
           inspector.visit("baseSelector", baseSelector);
         }
-
-        @Override
-        public boolean isNull()
-        {
-          final ExprEval exprEval = baseSelector.getObject();
-          return exprEval.isNull();
-        }
       }
       return new ExpressionFloatColumnSelector();
     }
@@ -205,13 +198,6 @@ public class AggregatorUtil
         {
           inspector.visit("baseSelector", baseSelector);
         }
-
-        @Override
-        public boolean isNull()
-        {
-          final ExprEval exprEval = baseSelector.getObject();
-          return exprEval.isNull();
-        }
       }
       return new ExpressionLongColumnSelector();
     }
@@ -245,13 +231,6 @@ public class AggregatorUtil
         public void inspectRuntimeShape(RuntimeShapeInspector inspector)
         {
           inspector.visit("baseSelector", baseSelector);
-        }
-
-        @Override
-        public boolean isNull()
-        {
-          final ExprEval exprEval = baseSelector.getObject();
-          return exprEval.isNull();
         }
       }
       return new ExpressionDoubleColumnSelector();

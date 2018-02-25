@@ -50,12 +50,6 @@ public class MetricManipulatorFnsTest
           {
             return longVal;
           }
-
-          @Override
-          public boolean isNull()
-          {
-            return false;
-          }
         }
     );
     LongMinAggregatorFactory longMinAggregatorFactory = new LongMinAggregatorFactory(NAME, FIELD);
@@ -94,12 +88,6 @@ public class MetricManipulatorFnsTest
           public long getLong()
           {
             return longVal;
-          }
-
-          @Override
-          public boolean isNull()
-          {
-            return false;
           }
         }
     );

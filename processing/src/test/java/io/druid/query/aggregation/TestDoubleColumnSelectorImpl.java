@@ -39,12 +39,6 @@ public class TestDoubleColumnSelectorImpl extends TestDoubleColumnSelector
     return doubles[index];
   }
 
-  @Override
-  public boolean isNull()
-  {
-    return false;
-  }
-
   public void increment()
   {
     ++index;

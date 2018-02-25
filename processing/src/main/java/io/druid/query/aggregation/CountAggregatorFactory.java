@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Longs;
 import io.druid.segment.ColumnSelectorFactory;
 
 import java.util.Arrays;
@@ -127,7 +128,7 @@ public class CountAggregatorFactory extends AggregatorFactory
   @Override
   public int getMaxIntermediateSize()
   {
-    return Long.BYTES;
+    return Longs.BYTES;
   }
 
   @Override

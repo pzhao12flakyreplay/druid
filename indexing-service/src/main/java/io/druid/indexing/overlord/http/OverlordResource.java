@@ -35,7 +35,6 @@ import com.sun.jersey.spi.container.ResourceFilters;
 import io.druid.audit.AuditEntry;
 import io.druid.audit.AuditInfo;
 import io.druid.audit.AuditManager;
-import io.druid.common.config.ConfigManager.SetResult;
 import io.druid.common.config.JacksonConfigManager;
 import io.druid.indexer.TaskLocation;
 import io.druid.indexer.TaskStatusPlus;
@@ -172,12 +171,7 @@ public class OverlordResource
             }
             catch (EntryExistsException e) {
               return Response.status(Response.Status.BAD_REQUEST)
-                             .entity(
-                                 ImmutableMap.of(
-                                     "error",
-                                     StringUtils.format("Task[%s] already exists!", task.getId())
-                                 )
-                             )
+                             .entity(ImmutableMap.of("error", StringUtils.format("Task[%s] already exists!", task.getId())))
                              .build();
             }
           }
@@ -217,16 +211,7 @@ public class OverlordResource
   @ResourceFilters(TaskResourceFilter.class)
   public Response getTaskPayload(@PathParam("taskid") String taskid)
   {
-    final TaskPayloadResponse response = new TaskPayloadResponse(
-        taskid,
-        taskStorageQueryAdapter.getTask(taskid).orNull()
-    );
-
-    final Response.Status status = response.getPayload() == null
-                                   ? Response.Status.NOT_FOUND
-                                   : Response.Status.OK;
-
-    return Response.status(status).entity(response).build();
+    return optionalTaskResponse(taskid, "payload", taskStorageQueryAdapter.getTask(taskid));
   }
 
   @GET
@@ -235,16 +220,7 @@ public class OverlordResource
   @ResourceFilters(TaskResourceFilter.class)
   public Response getTaskStatus(@PathParam("taskid") String taskid)
   {
-    final TaskStatusResponse response = new TaskStatusResponse(
-        taskid,
-        taskStorageQueryAdapter.getStatus(taskid).orNull()
-    );
-
-    final Response.Status status = response.getStatus() == null
-                                   ? Response.Status.NOT_FOUND
-                                   : Response.Status.OK;
-
-    return Response.status(status).entity(response).build();
+    return optionalTaskResponse(taskid, "status", taskStorageQueryAdapter.getStatus(taskid));
   }
 
   @GET
@@ -325,18 +301,17 @@ public class OverlordResource
       @Context final HttpServletRequest req
   )
   {
-    final SetResult setResult = configManager.set(
+    if (!configManager.set(
         WorkerBehaviorConfig.CONFIG_KEY,
         workerBehaviorConfig,
         new AuditInfo(author, comment, req.getRemoteAddr())
-    );
-    if (setResult.isOk()) {
-      log.info("Updating Worker configs: %s", workerBehaviorConfig);
-
-      return Response.ok().build();
-    } else {
+    )) {
       return Response.status(Response.Status.BAD_REQUEST).build();
     }
+
+    log.info("Updating Worker configs: %s", workerBehaviorConfig);
+
+    return Response.ok().build();
   }
 
   @GET
@@ -598,15 +573,14 @@ public class OverlordResource
     final List<TaskStatusPlus> completeTasks = recentlyFinishedTasks
         .stream()
         .map(status -> new TaskStatusPlus(
-                 status.getId(),
-                 taskFunction.apply(status.getId()).getType(),
-                 taskStorageQueryAdapter.getCreatedTime(status.getId()),
-                 // Would be nice to include the real queue insertion time, but the TaskStorage API doesn't yet allow it.
-                 DateTimes.EPOCH,
-                 status.getStatusCode(),
-                 status.getDuration(),
-                 TaskLocation.unknown()
-             )
+            status.getId(),
+            taskFunction.apply(status.getId()).getType(),
+            taskStorageQueryAdapter.getCreatedTime(status.getId()),
+            // Would be nice to include the real queue insertion time, but the TaskStorage API doesn't yet allow it.
+            DateTimes.EPOCH,
+            status.getStatusCode(),
+            status.getDuration(),
+            TaskLocation.unknown())
         )
         .collect(Collectors.toList());
 
@@ -751,6 +725,18 @@ public class OverlordResource
           }
         }
     );
+  }
+
+  private <T> Response optionalTaskResponse(String taskid, String objectType, Optional<T> x)
+  {
+    final Map<String, Object> results = Maps.newHashMap();
+    results.put("task", taskid);
+    if (x.isPresent()) {
+      results.put(objectType, x.get());
+      return Response.status(Response.Status.OK).entity(results).build();
+    } else {
+      return Response.status(Response.Status.NOT_FOUND).entity(results).build();
+    }
   }
 
   private <T> Response asLeaderWith(Optional<T> x, Function<T, Response> f)

@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.druid.collections.StupidPool;
-import io.druid.common.config.NullHandling;
 import io.druid.data.input.MapBasedInputRow;
 import io.druid.data.input.MapBasedRow;
 import io.druid.data.input.Row;
@@ -538,13 +537,9 @@ public class IncrementalIndexStorageAdapterTest
             // no null id, so should get empty dims array
             Assert.assertEquals(0, rowD.size());
             IndexedInts rowE = dimSelector3E.getRow();
-            if (NullHandling.replaceWithDefault()) {
-              Assert.assertEquals(1, rowE.size());
-              // the null id
-              Assert.assertEquals(0, rowE.get(0));
-            } else {
-              Assert.assertEquals(0, rowE.size());
-            }
+            Assert.assertEquals(1, rowE.size());
+            // the null id
+            Assert.assertEquals(0, rowE.get(0));
             cursor.advance();
             rowNumInCursor++;
           }

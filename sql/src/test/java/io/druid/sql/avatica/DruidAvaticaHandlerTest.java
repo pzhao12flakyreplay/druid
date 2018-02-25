@@ -41,12 +41,12 @@ import io.druid.java.util.common.Pair;
 import io.druid.java.util.common.StringUtils;
 import io.druid.math.expr.ExprMacroTable;
 import io.druid.server.DruidNode;
+import io.druid.server.security.NoopEscalator;
 import io.druid.server.security.AuthConfig;
 import io.druid.server.security.AuthTestUtils;
 import io.druid.server.security.AuthenticatorMapper;
 import io.druid.server.security.AuthorizerMapper;
 import io.druid.server.security.Escalator;
-import io.druid.server.security.NoopEscalator;
 import io.druid.sql.calcite.planner.Calcites;
 import io.druid.sql.calcite.planner.DruidOperatorTable;
 import io.druid.sql.calcite.planner.PlannerConfig;
@@ -256,7 +256,7 @@ public class DruidAvaticaHandlerTest
         "SELECT __time, CAST(__time AS DATE) AS t2 FROM druid.foo LIMIT 1"
     );
 
-    final DateTimeZone timeZone = DateTimes.inferTzfromString("America/Los_Angeles");
+    final DateTimeZone timeZone = DateTimeZone.forID("America/Los_Angeles");
     final DateTime localDateTime = new DateTime("2000-01-01T00Z", timeZone);
 
     final List<Map<String, Object>> resultRows = getRows(resultSet);
@@ -282,21 +282,6 @@ public class DruidAvaticaHandlerTest
     Assert.assertEquals(
         ImmutableList.of(
             ImmutableMap.of("x", "a", "y", "a")
-        ),
-        getRows(resultSet)
-    );
-  }
-
-  @Test
-  public void testSelectBoolean() throws Exception
-  {
-    final ResultSet resultSet = client.createStatement().executeQuery(
-        "SELECT dim2, dim2 IS NULL AS isnull FROM druid.foo LIMIT 1"
-    );
-
-    Assert.assertEquals(
-        ImmutableList.of(
-            ImmutableMap.of("dim2", "a", "isnull", false)
         ),
         getRows(resultSet)
     );

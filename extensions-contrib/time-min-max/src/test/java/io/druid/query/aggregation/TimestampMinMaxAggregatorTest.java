@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.primitives.Longs;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
@@ -147,7 +148,7 @@ public class TimestampMinMaxAggregatorTest
   {
     TimestampBufferAggregator aggregator = (TimestampBufferAggregator) aggregatorFactory.factorizeBuffered(selectorFactory);
 
-    ByteBuffer buffer = ByteBuffer.wrap(new byte[Long.BYTES]);
+    ByteBuffer buffer = ByteBuffer.wrap(new byte[Longs.BYTES]);
     aggregator.init(buffer, 0);
 
     for (Timestamp value : values) {

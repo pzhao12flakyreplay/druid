@@ -38,12 +38,6 @@ public class TestFloatColumnSelector extends io.druid.segment.TestFloatColumnSel
     return floats[index];
   }
 
-  @Override
-  public boolean isNull()
-  {
-    return false;
-  }
-
   public void increment()
   {
     ++index;

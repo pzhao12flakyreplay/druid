@@ -19,6 +19,7 @@
 
 package io.druid.query.aggregation;
 
+import com.google.common.primitives.Doubles;
 import io.druid.segment.ColumnSelectorFactory;
 import io.druid.segment.TestHelper;
 import org.easymock.EasyMock;
@@ -73,7 +74,7 @@ public class DoubleMaxAggregationTest
   {
     DoubleMaxBufferAggregator agg = (DoubleMaxBufferAggregator) doubleMaxAggFactory.factorizeBuffered(colSelectorFactory);
 
-    ByteBuffer buffer = ByteBuffer.wrap(new byte[Double.BYTES]);
+    ByteBuffer buffer = ByteBuffer.wrap(new byte[Doubles.BYTES]);
     agg.init(buffer, 0);
 
     aggregate(selector, agg, buffer, 0);

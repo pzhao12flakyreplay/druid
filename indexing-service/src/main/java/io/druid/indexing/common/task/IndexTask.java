@@ -24,9 +24,11 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -34,6 +36,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.druid.data.input.Committer;
 import io.druid.data.input.Firehose;
 import io.druid.data.input.FirehoseFactory;
 import io.druid.data.input.InputRow;
@@ -67,14 +70,15 @@ import io.druid.segment.realtime.FireDepartmentMetrics;
 import io.druid.segment.realtime.RealtimeMetricsMonitor;
 import io.druid.segment.realtime.appenderator.Appenderator;
 import io.druid.segment.realtime.appenderator.AppenderatorConfig;
-import io.druid.segment.realtime.appenderator.BaseAppenderatorDriver;
+import io.druid.segment.realtime.appenderator.AppenderatorDriver;
 import io.druid.segment.realtime.appenderator.AppenderatorDriverAddResult;
 import io.druid.segment.realtime.appenderator.Appenderators;
-import io.druid.segment.realtime.appenderator.BatchAppenderatorDriver;
 import io.druid.segment.realtime.appenderator.SegmentAllocator;
 import io.druid.segment.realtime.appenderator.SegmentIdentifier;
 import io.druid.segment.realtime.appenderator.SegmentsAndMetadata;
 import io.druid.segment.realtime.appenderator.TransactionalSegmentPublisher;
+import io.druid.segment.realtime.plumber.Committers;
+import io.druid.segment.realtime.plumber.NoopSegmentHandoffNotifierFactory;
 import io.druid.segment.writeout.SegmentWriteOutMediumFactory;
 import io.druid.timeline.DataSegment;
 import io.druid.timeline.partition.HashBasedNumberedShardSpec;
@@ -542,7 +546,7 @@ public class IndexTask extends AbstractTask
   }
 
   /**
-   * This method reads input data row by row and adds the read row to a proper segment using {@link BaseAppenderatorDriver}.
+   * This method reads input data row by row and adds the read row to a proper segment using {@link AppenderatorDriver}.
    * If there is no segment for the row, a new one is created.  Segments can be published in the middle of reading inputs
    * if one of below conditions are satisfied.
    *
@@ -551,7 +555,7 @@ public class IndexTask extends AbstractTask
    * If the number of rows in a segment exceeds {@link IndexTuningConfig#targetPartitionSize}
    * </li>
    * <li>
-   * If the number of rows added to {@link BaseAppenderatorDriver} so far exceeds {@link IndexTuningConfig#maxTotalRows}
+   * If the number of rows added to {@link AppenderatorDriver} so far exceeds {@link IndexTuningConfig#maxTotalRows}
    * </li>
    * </ul>
    *
@@ -567,6 +571,7 @@ public class IndexTask extends AbstractTask
       final FirehoseFactory firehoseFactory,
       final File firehoseTempDir
   ) throws IOException, InterruptedException
+
   {
     final GranularitySpec granularitySpec = dataSchema.getGranularitySpec();
     final FireDepartment fireDepartmentForMetrics = new FireDepartment(
@@ -585,7 +590,11 @@ public class IndexTask extends AbstractTask
 
     final IndexIOConfig ioConfig = ingestionSchema.getIOConfig();
     final IndexTuningConfig tuningConfig = ingestionSchema.tuningConfig;
-    final long pushTimeout = tuningConfig.getPushTimeout();
+    final long publishTimeout = tuningConfig.getPublishTimeout();
+    final long maxRowsInAppenderator = tuningConfig.getMaxTotalRows();
+    final int maxRowsInSegment = tuningConfig.getTargetPartitionSize() == null
+                                 ? Integer.MAX_VALUE
+                                 : tuningConfig.getTargetPartitionSize();
     final boolean isGuaranteedRollup = isGuaranteedRollup(ioConfig, tuningConfig);
 
     final SegmentAllocator segmentAllocator;
@@ -635,12 +644,7 @@ public class IndexTask extends AbstractTask
         }
 
         final int partitionNum = counters.computeIfAbsent(interval, x -> new AtomicInteger()).getAndIncrement();
-        return new SegmentIdentifier(
-            getDataSource(),
-            interval,
-            findVersion(versions, interval),
-            new NumberedShardSpec(partitionNum, 0)
-        );
+        return new SegmentIdentifier(getDataSource(), interval, findVersion(versions, interval), new NumberedShardSpec(partitionNum, 0));
       };
     }
 
@@ -651,72 +655,96 @@ public class IndexTask extends AbstractTask
 
     try (
         final Appenderator appenderator = newAppenderator(fireDepartmentMetrics, toolbox, dataSchema, tuningConfig);
-        final BatchAppenderatorDriver driver = newDriver(appenderator, toolbox, segmentAllocator);
+        final AppenderatorDriver driver = newDriver(
+            appenderator,
+            toolbox,
+            segmentAllocator,
+            fireDepartmentMetrics
+        );
         final Firehose firehose = firehoseFactory.connect(dataSchema.getParser(), firehoseTempDir)
     ) {
-      driver.startJob();
+      final Supplier<Committer> committerSupplier = Committers.supplierFromFirehose(firehose);
 
-      while (firehose.hasMore()) {
-        try {
-          final InputRow inputRow = firehose.nextRow();
+      if (driver.startJob() != null) {
+        driver.clear();
+      }
 
-          if (inputRow == null) {
-            fireDepartmentMetrics.incrementThrownAway();
-            continue;
-          }
+      try {
+        while (firehose.hasMore()) {
+          try {
+            final InputRow inputRow = firehose.nextRow();
 
-          final Optional<Interval> optInterval = granularitySpec.bucketInterval(inputRow.getTimestamp());
-          if (!optInterval.isPresent()) {
-            fireDepartmentMetrics.incrementThrownAway();
-            continue;
-          }
-
-          final String sequenceName;
-
-          if (isGuaranteedRollup) {
-            // Sequence name is based solely on the shardSpec, and there will only be one segment per sequence.
-            final Interval interval = optInterval.get();
-            final ShardSpec shardSpec = shardSpecs.getShardSpec(interval, inputRow);
-            sequenceName = Appenderators.getSequenceName(interval, findVersion(versions, interval), shardSpec);
-          } else {
-            // Segments are created as needed, using a single sequence name. They may be allocated from the overlord
-            // (in append mode) or may be created on our own authority (in overwrite mode).
-            sequenceName = getId();
-          }
-          final AppenderatorDriverAddResult addResult = driver.add(inputRow, sequenceName);
-
-          if (addResult.isOk()) {
-            // incremental segment publishment is allowed only when rollup don't have to be perfect.
-            if (!isGuaranteedRollup &&
-                (exceedMaxRowsInSegment(addResult.getNumRowsInSegment(), tuningConfig) ||
-                 exceedMaxRowsInAppenderator(addResult.getTotalNumRowsInAppenderator(), tuningConfig))) {
-              // There can be some segments waiting for being published even though any rows won't be added to them.
-              // If those segments are not published here, the available space in appenderator will be kept to be small
-              // which makes the size of segments smaller.
-              final SegmentsAndMetadata pushed = driver.pushAllAndClear(pushTimeout);
-              log.info("Pushed segments[%s]", pushed.getSegments());
+            if (inputRow == null) {
+              fireDepartmentMetrics.incrementThrownAway();
+              continue;
             }
-          } else {
-            throw new ISE("Failed to add a row with timestamp[%s]", inputRow.getTimestamp());
-          }
 
-          fireDepartmentMetrics.incrementProcessed();
-        }
-        catch (ParseException e) {
-          if (tuningConfig.isReportParseExceptions()) {
-            throw e;
-          } else {
-            fireDepartmentMetrics.incrementUnparseable();
+            final Optional<Interval> optInterval = granularitySpec.bucketInterval(inputRow.getTimestamp());
+            if (!optInterval.isPresent()) {
+              fireDepartmentMetrics.incrementThrownAway();
+              continue;
+            }
+
+            final String sequenceName;
+
+            if (isGuaranteedRollup) {
+              // Sequence name is based solely on the shardSpec, and there will only be one segment per sequence.
+              final Interval interval = optInterval.get();
+              final ShardSpec shardSpec = shardSpecs.getShardSpec(interval, inputRow);
+              sequenceName = Appenderators.getSequenceName(interval, findVersion(versions, interval), shardSpec);
+            } else {
+              // Segments are created as needed, using a single sequence name. They may be allocated from the overlord
+              // (in append mode) or may be created on our own authority (in overwrite mode).
+              sequenceName = getId();
+            }
+            final AppenderatorDriverAddResult addResult = driver.add(inputRow, sequenceName, committerSupplier);
+
+            if (addResult.isOk()) {
+              // incremental segment publishment is allowed only when rollup don't have to be perfect.
+              if (!isGuaranteedRollup &&
+                  (addResult.getNumRowsInSegment() >= maxRowsInSegment ||
+                   addResult.getTotalNumRowsInAppenderator() >= maxRowsInAppenderator)) {
+                // There can be some segments waiting for being published even though any rows won't be added to them.
+                // If those segments are not published here, the available space in appenderator will be kept to be small
+                // which makes the size of segments smaller.
+                final SegmentsAndMetadata published = awaitPublish(
+                    driver.publishAll(
+                        publisher,
+                        committerSupplier.get()
+                    ),
+                    publishTimeout
+                );
+                // Even though IndexTask uses NoopHandoffNotifier which does nothing for segment handoff,
+                // the below code is needed to update the total number of rows added to the appenderator so far.
+                // See AppenderatorDriver.registerHandoff() and Appenderator.drop().
+                // A hard-coded timeout is used here because the below get() is expected to return immediately.
+                driver.registerHandoff(published).get(30, TimeUnit.SECONDS);
+              }
+            } else {
+              throw new ISE("Failed to add a row with timestamp[%s]", inputRow.getTimestamp());
+            }
+
+            fireDepartmentMetrics.incrementProcessed();
+          }
+          catch (ParseException e) {
+            if (tuningConfig.isReportParseExceptions()) {
+              throw e;
+            } else {
+              fireDepartmentMetrics.incrementUnparseable();
+            }
           }
         }
       }
-
-      final SegmentsAndMetadata pushed = driver.pushAllAndClear(pushTimeout);
-      log.info("Pushed segments[%s]", pushed.getSegments());
+      finally {
+        driver.persist(committerSupplier.get());
+      }
 
       final SegmentsAndMetadata published = awaitPublish(
-          driver.publishAll(publisher),
-          pushTimeout
+          driver.publishAll(
+              publisher,
+              committerSupplier.get()
+          ),
+          publishTimeout
       );
 
       if (published == null) {
@@ -733,7 +761,14 @@ public class IndexTask extends AbstractTask
             "Published segments[%s]", Joiner.on(", ").join(
                 Iterables.transform(
                     published.getSegments(),
-                    DataSegment::getIdentifier
+                    new Function<DataSegment, String>()
+                    {
+                      @Override
+                      public String apply(DataSegment input)
+                      {
+                        return input.getIdentifier();
+                      }
+                    }
                 )
             )
         );
@@ -745,24 +780,11 @@ public class IndexTask extends AbstractTask
     }
   }
 
-  private static boolean exceedMaxRowsInSegment(int numRowsInSegment, IndexTuningConfig indexTuningConfig)
-  {
-    // maxRowsInSegment should be null if numShards is set in indexTuningConfig
-    final Integer maxRowsInSegment = indexTuningConfig.getTargetPartitionSize();
-    return maxRowsInSegment != null && maxRowsInSegment <= numRowsInSegment;
-  }
-
-  private static boolean exceedMaxRowsInAppenderator(long numRowsInAppenderator, IndexTuningConfig indexTuningConfig)
-  {
-    // maxRowsInAppenderator should be null if numShards is set in indexTuningConfig
-    final Long maxRowsInAppenderator = indexTuningConfig.getMaxTotalRows();
-    return maxRowsInAppenderator != null && maxRowsInAppenderator <= numRowsInAppenderator;
-  }
-
   private static SegmentsAndMetadata awaitPublish(
       ListenableFuture<SegmentsAndMetadata> publishFuture,
       long publishTimeout
-  ) throws ExecutionException, InterruptedException, TimeoutException
+  )
+      throws ExecutionException, InterruptedException, TimeoutException
   {
     if (publishTimeout == 0) {
       return publishFuture.get();
@@ -789,16 +811,20 @@ public class IndexTask extends AbstractTask
     );
   }
 
-  private static BatchAppenderatorDriver newDriver(
+  private static AppenderatorDriver newDriver(
       final Appenderator appenderator,
       final TaskToolbox toolbox,
-      final SegmentAllocator segmentAllocator
+      final SegmentAllocator segmentAllocator,
+      final FireDepartmentMetrics metrics
   )
   {
-    return new BatchAppenderatorDriver(
+    return new AppenderatorDriver(
         appenderator,
         segmentAllocator,
-        new ActionBasedUsedSegmentChecker(toolbox.getTaskActionClient())
+        new NoopSegmentHandoffNotifierFactory(), // don't wait for handoff since we don't serve queries
+        new ActionBasedUsedSegmentChecker(toolbox.getTaskActionClient()),
+        toolbox.getObjectMapper(),
+        metrics
     );
   }
 
@@ -930,13 +956,13 @@ public class IndexTask extends AbstractTask
     private static final boolean DEFAULT_FORCE_EXTENDABLE_SHARD_SPECS = false;
     private static final boolean DEFAULT_GUARANTEE_ROLLUP = false;
     private static final boolean DEFAULT_REPORT_PARSE_EXCEPTIONS = false;
-    private static final long DEFAULT_PUSH_TIMEOUT = 0;
+    private static final long DEFAULT_PUBLISH_TIMEOUT = 0;
 
     static final int DEFAULT_TARGET_PARTITION_SIZE = 5000000;
 
     private final Integer targetPartitionSize;
     private final int maxRowsInMemory;
-    private final Long maxTotalRows;
+    private final int maxTotalRows;
     private final Integer numShards;
     private final IndexSpec indexSpec;
     private final File basePersistDirectory;
@@ -944,7 +970,7 @@ public class IndexTask extends AbstractTask
     private final boolean forceExtendableShardSpecs;
     private final boolean forceGuaranteedRollup;
     private final boolean reportParseExceptions;
-    private final long pushTimeout;
+    private final long publishTimeout;
     @Nullable
     private final SegmentWriteOutMediumFactory segmentWriteOutMediumFactory;
 
@@ -952,7 +978,7 @@ public class IndexTask extends AbstractTask
     public IndexTuningConfig(
         @JsonProperty("targetPartitionSize") @Nullable Integer targetPartitionSize,
         @JsonProperty("maxRowsInMemory") @Nullable Integer maxRowsInMemory,
-        @JsonProperty("maxTotalRows") @Nullable Long maxTotalRows,
+        @JsonProperty("maxTotalRows") @Nullable Integer maxTotalRows,
         @JsonProperty("rowFlushBoundary") @Nullable Integer rowFlushBoundary_forBackCompatibility, // DEPRECATED
         @JsonProperty("numShards") @Nullable Integer numShards,
         @JsonProperty("indexSpec") @Nullable IndexSpec indexSpec,
@@ -962,8 +988,7 @@ public class IndexTask extends AbstractTask
         @JsonProperty("forceExtendableShardSpecs") @Nullable Boolean forceExtendableShardSpecs,
         @JsonProperty("forceGuaranteedRollup") @Nullable Boolean forceGuaranteedRollup,
         @JsonProperty("reportParseExceptions") @Nullable Boolean reportParseExceptions,
-        @JsonProperty("publishTimeout") @Nullable Long publishTimeout, // deprecated
-        @JsonProperty("pushTimeout") @Nullable Long pushTimeout,
+        @JsonProperty("publishTimeout") @Nullable Long publishTimeout,
         @JsonProperty("segmentWriteOutMediumFactory") @Nullable SegmentWriteOutMediumFactory segmentWriteOutMediumFactory
     )
     {
@@ -977,7 +1002,7 @@ public class IndexTask extends AbstractTask
           forceExtendableShardSpecs,
           forceGuaranteedRollup,
           reportParseExceptions,
-          pushTimeout != null ? pushTimeout : publishTimeout,
+          publishTimeout,
           null,
           segmentWriteOutMediumFactory
       );
@@ -991,14 +1016,14 @@ public class IndexTask extends AbstractTask
     private IndexTuningConfig(
         @Nullable Integer targetPartitionSize,
         @Nullable Integer maxRowsInMemory,
-        @Nullable Long maxTotalRows,
+        @Nullable Integer maxTotalRows,
         @Nullable Integer numShards,
         @Nullable IndexSpec indexSpec,
         @Nullable Integer maxPendingPersists,
         @Nullable Boolean forceExtendableShardSpecs,
         @Nullable Boolean forceGuaranteedRollup,
         @Nullable Boolean reportParseExceptions,
-        @Nullable Long pushTimeout,
+        @Nullable Long publishTimeout,
         @Nullable File basePersistDirectory,
         @Nullable SegmentWriteOutMediumFactory segmentWriteOutMediumFactory
     )
@@ -1008,9 +1033,15 @@ public class IndexTask extends AbstractTask
           "targetPartitionSize and numShards cannot both be set"
       );
 
-      this.targetPartitionSize = initializeTargetPartitionSize(numShards, targetPartitionSize);
+      this.targetPartitionSize = numShards != null && !numShards.equals(-1)
+                                 ? null
+                                 : (targetPartitionSize == null || targetPartitionSize.equals(-1)
+                                    ? DEFAULT_TARGET_PARTITION_SIZE
+                                    : targetPartitionSize);
       this.maxRowsInMemory = maxRowsInMemory == null ? DEFAULT_MAX_ROWS_IN_MEMORY : maxRowsInMemory;
-      this.maxTotalRows = initializeMaxTotalRows(numShards, maxTotalRows);
+      this.maxTotalRows = maxTotalRows == null
+                          ? DEFAULT_MAX_TOTAL_ROWS
+                          : maxTotalRows;
       this.numShards = numShards == null || numShards.equals(-1) ? null : numShards;
       this.indexSpec = indexSpec == null ? DEFAULT_INDEX_SPEC : indexSpec;
       this.maxPendingPersists = maxPendingPersists == null ? DEFAULT_MAX_PENDING_PERSISTS : maxPendingPersists;
@@ -1021,7 +1052,7 @@ public class IndexTask extends AbstractTask
       this.reportParseExceptions = reportParseExceptions == null
                                    ? DEFAULT_REPORT_PARSE_EXCEPTIONS
                                    : reportParseExceptions;
-      this.pushTimeout = pushTimeout == null ? DEFAULT_PUSH_TIMEOUT : pushTimeout;
+      this.publishTimeout = publishTimeout == null ? DEFAULT_PUBLISH_TIMEOUT : publishTimeout;
       this.basePersistDirectory = basePersistDirectory;
 
       Preconditions.checkArgument(
@@ -1030,26 +1061,6 @@ public class IndexTask extends AbstractTask
       );
 
       this.segmentWriteOutMediumFactory = segmentWriteOutMediumFactory;
-    }
-
-    private static Integer initializeTargetPartitionSize(Integer numShards, Integer targetPartitionSize)
-    {
-      if (numShards == null || numShards == -1) {
-        return targetPartitionSize == null || targetPartitionSize.equals(-1)
-               ? DEFAULT_TARGET_PARTITION_SIZE
-               : targetPartitionSize;
-      } else {
-        return null;
-      }
-    }
-
-    private static Long initializeMaxTotalRows(Integer numShards, Long maxTotalRows)
-    {
-      if (numShards == null || numShards == -1) {
-        return maxTotalRows == null ? DEFAULT_MAX_TOTAL_ROWS : maxTotalRows;
-      } else {
-        return null;
-      }
     }
 
     public IndexTuningConfig withBasePersistDirectory(File dir)
@@ -1064,7 +1075,7 @@ public class IndexTask extends AbstractTask
           forceExtendableShardSpecs,
           forceGuaranteedRollup,
           reportParseExceptions,
-          pushTimeout,
+          publishTimeout,
           dir,
           segmentWriteOutMediumFactory
       );
@@ -1084,7 +1095,7 @@ public class IndexTask extends AbstractTask
     }
 
     @JsonProperty
-    public Long getMaxTotalRows()
+    public int getMaxTotalRows()
     {
       return maxTotalRows;
     }
@@ -1145,9 +1156,9 @@ public class IndexTask extends AbstractTask
     }
 
     @JsonProperty
-    public long getPushTimeout()
+    public long getPublishTimeout()
     {
-      return pushTimeout;
+      return publishTimeout;
     }
 
     @Override
@@ -1175,12 +1186,12 @@ public class IndexTask extends AbstractTask
       }
       IndexTuningConfig that = (IndexTuningConfig) o;
       return maxRowsInMemory == that.maxRowsInMemory &&
-             Objects.equals(maxTotalRows, that.maxTotalRows) &&
+             maxTotalRows == that.maxTotalRows &&
              maxPendingPersists == that.maxPendingPersists &&
              forceExtendableShardSpecs == that.forceExtendableShardSpecs &&
              forceGuaranteedRollup == that.forceGuaranteedRollup &&
              reportParseExceptions == that.reportParseExceptions &&
-             pushTimeout == that.pushTimeout &&
+             publishTimeout == that.publishTimeout &&
              Objects.equals(targetPartitionSize, that.targetPartitionSize) &&
              Objects.equals(numShards, that.numShards) &&
              Objects.equals(indexSpec, that.indexSpec) &&
@@ -1202,7 +1213,7 @@ public class IndexTask extends AbstractTask
           forceExtendableShardSpecs,
           forceGuaranteedRollup,
           reportParseExceptions,
-          pushTimeout,
+          publishTimeout,
           segmentWriteOutMediumFactory
       );
     }

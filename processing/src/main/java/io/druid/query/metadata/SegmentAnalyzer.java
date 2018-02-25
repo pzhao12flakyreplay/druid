@@ -25,6 +25,8 @@ import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.common.primitives.Doubles;
+import com.google.common.primitives.Longs;
 import io.druid.java.util.common.StringUtils;
 import io.druid.java.util.common.granularity.Granularities;
 import io.druid.java.util.common.guava.Accumulator;
@@ -108,13 +110,13 @@ public class SegmentAnalyzer
       final ValueType type = capabilities.getType();
       switch (type) {
         case LONG:
-          analysis = analyzeNumericColumn(capabilities, length, Long.BYTES);
+          analysis = analyzeNumericColumn(capabilities, length, Longs.BYTES);
           break;
         case FLOAT:
           analysis = analyzeNumericColumn(capabilities, length, NUM_BYTES_IN_TEXT_FLOAT);
           break;
         case DOUBLE:
-          analysis = analyzeNumericColumn(capabilities, length, Double.BYTES);
+          analysis = analyzeNumericColumn(capabilities, length, Doubles.BYTES);
           break;
         case STRING:
           if (index != null) {

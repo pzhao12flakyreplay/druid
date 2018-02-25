@@ -199,7 +199,7 @@ public class DistinctCountAggregatorFactory extends AggregatorFactory
   @Override
   public int getMaxIntermediateSize()
   {
-    return Long.BYTES;
+    return Longs.BYTES;
   }
 
   @Override

@@ -19,6 +19,7 @@
 
 package io.druid.query.groupby.epinephelinae.column;
 
+import com.google.common.primitives.Longs;
 import io.druid.segment.ColumnValueSelector;
 
 import java.nio.ByteBuffer;
@@ -30,7 +31,7 @@ public class LongGroupByColumnSelectorStrategy implements GroupByColumnSelectorS
   @Override
   public int getGroupingKeySize()
   {
-    return Long.BYTES;
+    return Longs.BYTES;
   }
 
   @Override

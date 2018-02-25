@@ -80,7 +80,6 @@ public class SingleLongInputCachingExpressionColumnValueSelector implements Colu
   @Override
   public double getDouble()
   {
-    // No Assert for null handling as delegate selector already have it.
     final long currentInput = selector.getLong();
 
     if (lastInput == currentInput && validity == Validity.DOUBLE) {
@@ -97,14 +96,12 @@ public class SingleLongInputCachingExpressionColumnValueSelector implements Colu
   @Override
   public float getFloat()
   {
-    // No Assert for null handling as delegate selector already have it.
     return (float) getDouble();
   }
 
   @Override
   public long getLong()
   {
-    // No Assert for null handling as delegate selector already have it.
     final long currentInput = selector.getLong();
 
     if (lastInput == currentInput && validity == Validity.LONG) {
@@ -145,11 +142,5 @@ public class SingleLongInputCachingExpressionColumnValueSelector implements Colu
   {
     bindings.set(value);
     return expression.eval(bindings);
-  }
-
-  @Override
-  public boolean isNull()
-  {
-    return getObject().isNull();
   }
 }

@@ -39,17 +39,7 @@ public interface IntegrationTestingConfig
 
   String getZookeeperHosts();
 
-  default String getZookeeperInternalHosts()
-  {
-    return getZookeeperHosts();
-  }
-
   String getKafkaHost();
-
-  default String getKafkaInternalHost()
-  {
-    return getKafkaHost();
-  }
 
   String getProperty(String prop);
 

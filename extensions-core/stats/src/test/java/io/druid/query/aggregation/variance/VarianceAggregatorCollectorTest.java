@@ -151,13 +151,6 @@ public class VarianceAggregatorCollectorTest
     {
       return v;
     }
-
-    @Override
-    public boolean isNull()
-    {
-      return false;
-    }
-
   }
 
   private static class ObjectHandOver extends TestObjectColumnSelector

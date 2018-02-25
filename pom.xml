@@ -143,7 +143,6 @@
         <module>extensions-contrib/sqlserver-metadata-storage</module>
         <module>extensions-contrib/kafka-emitter</module>
         <module>extensions-contrib/redis-cache</module>
-        <module>extensions-contrib/opentsdb-emitter</module>
         <!-- distribution packaging -->
         <module>distribution</module>
     </modules>
@@ -958,7 +957,6 @@
                     </signaturesFiles>
                     <excludes>
                         <exclude>io/druid/java/util/common/DateTimes$UtcFormatter.class</exclude>
-                        <exclude>io/druid/java/util/common/DateTimes.class</exclude>
                     </excludes>
                 </configuration>
                 <executions>

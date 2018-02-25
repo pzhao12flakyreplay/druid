@@ -20,8 +20,9 @@
 package io.druid.client.cache;
 
 import com.google.common.base.Preconditions;
-import io.druid.java.util.common.StringUtils;
+import com.google.common.primitives.Ints;
 import io.druid.java.util.emitter.service.ServiceEmitter;
+import io.druid.java.util.common.StringUtils;
 
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
@@ -72,7 +73,7 @@ public interface Cache
     public byte[] toByteArray()
     {
       final byte[] nsBytes = StringUtils.toUtf8(this.namespace);
-      return ByteBuffer.allocate(Integer.BYTES + nsBytes.length + this.key.length)
+      return ByteBuffer.allocate(Ints.BYTES + nsBytes.length + this.key.length)
           .putInt(nsBytes.length)
           .put(nsBytes)
           .put(this.key).array();

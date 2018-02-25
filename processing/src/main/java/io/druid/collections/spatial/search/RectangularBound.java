@@ -24,6 +24,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
+import com.google.common.primitives.Floats;
+import com.google.common.primitives.Ints;
 import io.druid.collections.spatial.ImmutableNode;
 import io.druid.collections.spatial.ImmutablePoint;
 
@@ -135,16 +137,16 @@ public class RectangularBound implements Bound
   @Override
   public byte[] getCacheKey()
   {
-    ByteBuffer minCoordsBuffer = ByteBuffer.allocate(minCoords.length * Float.BYTES);
+    ByteBuffer minCoordsBuffer = ByteBuffer.allocate(minCoords.length * Floats.BYTES);
     minCoordsBuffer.asFloatBuffer().put(minCoords);
     final byte[] minCoordsCacheKey = minCoordsBuffer.array();
 
-    ByteBuffer maxCoordsBuffer = ByteBuffer.allocate(maxCoords.length * Float.BYTES);
+    ByteBuffer maxCoordsBuffer = ByteBuffer.allocate(maxCoords.length * Floats.BYTES);
     maxCoordsBuffer.asFloatBuffer().put(maxCoords);
     final byte[] maxCoordsCacheKey = maxCoordsBuffer.array();
 
     final ByteBuffer cacheKey = ByteBuffer
-        .allocate(1 + minCoordsCacheKey.length + maxCoordsCacheKey.length + Integer.BYTES)
+        .allocate(1 + minCoordsCacheKey.length + maxCoordsCacheKey.length + Ints.BYTES)
         .put(minCoordsCacheKey)
         .put(maxCoordsCacheKey)
         .putInt(limit)

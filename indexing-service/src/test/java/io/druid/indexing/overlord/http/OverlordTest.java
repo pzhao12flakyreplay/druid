@@ -26,6 +26,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import io.druid.java.util.emitter.EmittingLogger;
+import io.druid.java.util.emitter.service.ServiceEmitter;
 import io.druid.curator.PotentiallyGzippedCompressionProvider;
 import io.druid.curator.discovery.NoopServiceAnnouncer;
 import io.druid.discovery.DruidLeaderSelector;
@@ -54,8 +56,6 @@ import io.druid.indexing.overlord.supervisor.SupervisorManager;
 import io.druid.java.util.common.Pair;
 import io.druid.java.util.common.concurrent.Execs;
 import io.druid.java.util.common.guava.CloseQuietly;
-import io.druid.java.util.emitter.EmittingLogger;
-import io.druid.java.util.emitter.service.ServiceEmitter;
 import io.druid.server.DruidNode;
 import io.druid.server.coordinator.CoordinatorOverlordServiceConfig;
 import io.druid.server.metrics.NoopServiceEmitter;
@@ -80,6 +80,7 @@ import javax.ws.rs.core.Response;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -236,7 +237,7 @@ public class OverlordTest
 
     // Task payload for task_0 should be present in taskStorage
     response = overlordResource.getTaskPayload(taskId_0);
-    Assert.assertEquals(task_0, ((TaskPayloadResponse) response.getEntity()).getPayload());
+    Assert.assertEquals(task_0, ((Map) response.getEntity()).get("payload"));
 
     // Task not present in taskStorage - should fail
     response = overlordResource.getTaskPayload("whatever");
@@ -244,10 +245,10 @@ public class OverlordTest
 
     // Task status of the submitted task should be running
     response = overlordResource.getTaskStatus(taskId_0);
-    Assert.assertEquals(taskId_0, ((TaskStatusResponse) response.getEntity()).getTask());
+    Assert.assertEquals(taskId_0, ((Map) response.getEntity()).get("task"));
     Assert.assertEquals(
         TaskStatus.running(taskId_0).getStatusCode(),
-        ((TaskStatusResponse) response.getEntity()).getStatus().getStatusCode()
+        ((TaskStatus) ((Map) response.getEntity()).get("status")).getStatusCode()
     );
 
     // Simulate completion of task_0
@@ -295,7 +296,7 @@ public class OverlordTest
   {
     while (true) {
       Response response = overlordResource.getTaskStatus(taskId);
-      if (status.equals(((TaskStatusResponse) response.getEntity()).getStatus().getStatusCode())) {
+      if (status.equals(((TaskStatus) ((Map) response.getEntity()).get("status")).getStatusCode())) {
         break;
       }
       Thread.sleep(10);

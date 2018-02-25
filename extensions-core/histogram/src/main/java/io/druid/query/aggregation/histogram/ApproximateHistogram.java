@@ -24,6 +24,9 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Floats;
+import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
+import com.google.common.primitives.Shorts;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -1097,12 +1100,12 @@ public class ApproximateHistogram
 
   public int getDenseStorageSize()
   {
-    return Integer.BYTES * 2 + Float.BYTES * size + Long.BYTES * size + Float.BYTES * 2;
+    return Ints.BYTES * 2 + Floats.BYTES * size + Longs.BYTES * size + Floats.BYTES * 2;
   }
 
   public int getSparseStorageSize()
   {
-    return Integer.BYTES * 2 + Float.BYTES * binCount + Long.BYTES * binCount + Float.BYTES * 2;
+    return Ints.BYTES * 2 + Floats.BYTES * binCount + Longs.BYTES * binCount + Floats.BYTES * 2;
   }
 
   public int getCompactStorageSize()
@@ -1112,14 +1115,14 @@ public class ApproximateHistogram
 
     final long exactCount = getExactCount();
     if (exactCount == count) {
-      return Short.BYTES + 1 + Float.BYTES * (int) exactCount;
+      return Shorts.BYTES + 1 + Floats.BYTES * (int) exactCount;
     } else {
-      return Short.BYTES
+      return Shorts.BYTES
              + 1
-             + Float.BYTES * (int) exactCount
+             + Floats.BYTES * (int) exactCount
              + 1
-             + Float.BYTES * (int) (count - exactCount)
-             + Float.BYTES * 2;
+             + Floats.BYTES * (int) (count - exactCount)
+             + Floats.BYTES * 2;
     }
   }
 
@@ -1183,9 +1186,9 @@ public class ApproximateHistogram
     buf.putInt(binCount);
 
     buf.asFloatBuffer().put(positions);
-    buf.position(buf.position() + Float.BYTES * positions.length);
+    buf.position(buf.position() + Floats.BYTES * positions.length);
     buf.asLongBuffer().put(bins);
-    buf.position(buf.position() + Long.BYTES * bins.length);
+    buf.position(buf.position() + Longs.BYTES * bins.length);
 
     buf.putFloat(min);
     buf.putFloat(max);
@@ -1287,9 +1290,9 @@ public class ApproximateHistogram
     long[] bins = new long[size];
 
     buf.asFloatBuffer().get(positions);
-    buf.position(buf.position() + Float.BYTES * positions.length);
+    buf.position(buf.position() + Floats.BYTES * positions.length);
     buf.asLongBuffer().get(bins);
-    buf.position(buf.position() + Long.BYTES * bins.length);
+    buf.position(buf.position() + Longs.BYTES * bins.length);
 
     float min = buf.getFloat();
     float max = buf.getFloat();
@@ -1416,7 +1419,7 @@ public class ApproximateHistogram
       return fromBytesCompact(buf);
     } else {
       // ignore size, determine if sparse or dense based on sign of binCount
-      if (buf.getInt(buf.position() + Integer.BYTES) < 0) {
+      if (buf.getInt(buf.position() + Ints.BYTES) < 0) {
         return fromBytesSparse(buf);
       } else {
         return fromBytesDense(buf);
